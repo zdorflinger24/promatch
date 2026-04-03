@@ -1,0 +1,72 @@
+name: Preview
+
+on:
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+  NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+  NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+
+jobs:
+  preview:
+    name: Preview Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - run: npm ci
+
+      # Create Neon branch for this PR
+      - name: Create Neon DB branch
+        id: neon
+        if: env.NEON_API_KEY != ''
+        uses: neondatabase/create-branch-action@v5
+        with:
+          project_id: ${{ env.NEON_PROJECT_ID }}
+          branch_name: preview/pr-${{ github.event.pull_request.number }}
+          api_key: ${{ env.NEON_API_KEY }}
+          username: neondb_owner
+
+      # Run migrations on the branch DB
+      - name: Run migrations on preview branch
+        if: steps.neon.outputs.db_url != ''
+        run: npx drizzle-kit push --force
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url }}
+
+      # Comment on PR with preview info
+      - name: Comment preview URLs
+        if: steps.neon.outputs.db_url != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## Preview Deploy\n\n- **Vercel Preview:** Check Vercel bot comment for URL\n- **Neon Branch:** \`preview/pr-${context.issue.number}\`\n- **Migrations:** Applied successfully`
+            })
+
+  cleanup:
+    name: Cleanup Neon Branch
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete Neon branch
+        if: env.NEON_API_KEY != ''
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          branch: preview/pr-${{ github.event.pull_request.number }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}

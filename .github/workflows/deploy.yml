@@ -1,0 +1,51 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - run: npm ci
+
+      # Run Drizzle migrations against production Neon DB
+      - name: Run database migrations
+        run: npx drizzle-kit push --force
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      # Vercel handles the actual deployment via its GitHub integration
+      # This step verifies the build succeeds with production env
+      - name: Verify build
+        run: npm run build
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+          NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
+
+      # Upload source maps to Sentry
+      - name: Upload Sentry source maps
+        if: env.SENTRY_AUTH_TOKEN != ''
+        run: npx @sentry/cli sourcemaps upload .next
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
