@@ -132,10 +132,10 @@ export type MatchingScore = z.infer<typeof matchingScoreSchema>;
 export function computeTotalScore(score: MatchingScore): number {
   const weights = {
     expertise: 0.30,
-    proximity: 0.25,
-    trackRecord: 0.20,
+    trackRecord: 0.25,
+    proximity: 0.15,
     availability: 0.15,
-    priceFit: 0.10,
+    priceFit: 0.15,
   };
 
   return (

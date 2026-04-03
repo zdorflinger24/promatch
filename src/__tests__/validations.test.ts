@@ -73,7 +73,7 @@ describe("createProSchema", () => {
   });
 
   it("rejects missing email", () => {
-    const { email, ...noemail } = validPro;
+    const { email: _email, ...noemail } = validPro;
     const result = createProSchema.safeParse(noemail);
     expect(result.success).toBe(false);
   });
@@ -275,18 +275,18 @@ describe("computeTotalScore", () => {
       availability: 0,
       priceFit: 100,
     };
-    expect(computeTotalScore(priceFitOnly)).toBe(10);
+    expect(computeTotalScore(priceFitOnly)).toBe(15);
   });
 
   it("computes a realistic mixed score", () => {
     const score = {
       expertise: 85,    // 85 * 0.30 = 25.5
-      proximity: 90,    // 90 * 0.25 = 22.5
-      trackRecord: 70,  // 70 * 0.20 = 14.0
+      proximity: 90,    // 90 * 0.15 = 13.5
+      trackRecord: 70,  // 70 * 0.25 = 17.5
       availability: 95, // 95 * 0.15 = 14.25
-      priceFit: 80,     // 80 * 0.10 = 8.0
+      priceFit: 80,     // 80 * 0.15 = 12.0
     };
-    const expected = 25.5 + 22.5 + 14.0 + 14.25 + 8.0;
+    const expected = 25.5 + 13.5 + 17.5 + 14.25 + 12.0;
     expect(computeTotalScore(score)).toBeCloseTo(expected, 5);
   });
 });
